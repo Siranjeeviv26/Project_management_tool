@@ -77,8 +77,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        return { error: new Error(data.error || 'Signup failed') };
+        let errorMessage = 'Signup failed';
+        try {
+          const data = await res.json();
+          errorMessage = data.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON, it's probably an HTML error page
+          errorMessage = `Server error: ${res.status} ${res.statusText}`;
+        }
+        return { error: new Error(errorMessage) };
       }
 
       await checkAuth();
@@ -98,8 +105,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (!res.ok) {
-        const data = await res.json();
-        return { error: new Error(data.error || 'Signin failed') };
+        let errorMessage = 'Signin failed';
+        try {
+          const data = await res.json();
+          errorMessage = data.error || errorMessage;
+        } catch (e) {
+          // If response is not JSON, it's probably an HTML error page
+          errorMessage = `Server error: ${res.status} ${res.statusText}`;
+        }
+        return { error: new Error(errorMessage) };
       }
 
       const data = await res.json();
