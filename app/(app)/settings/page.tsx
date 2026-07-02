@@ -22,6 +22,7 @@ import {
   Loader2,
   Camera,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function SettingsPage() {
   const { user, loading: authLoading, profile, updateProfile, updatePassword } = useAuth();
@@ -47,7 +48,6 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const initials = profile?.full_name
     ?.split(' ')
@@ -58,13 +58,12 @@ export default function SettingsPage() {
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setMessage(null);
 
     const { error } = await updateProfile({ full_name: fullName });
     if (error) {
-      setMessage({ type: 'error', text: error.message });
+      toast.error(error.message, { duration: 4000 });
     } else {
-      setMessage({ type: 'success', text: 'Profile updated successfully!' });
+      toast.success('Profile updated successfully!', { duration: 3000 });
     }
     setSaving(false);
   };
@@ -73,23 +72,22 @@ export default function SettingsPage() {
     e.preventDefault();
 
     if (newPassword !== confirmPassword) {
-      setMessage({ type: 'error', text: 'Passwords do not match' });
+      toast.error('Passwords do not match', { duration: 4000 });
       return;
     }
 
     if (newPassword.length < 8) {
-      setMessage({ type: 'error', text: 'Password must be at least 8 characters' });
+      toast.error('Password must be at least 8 characters', { duration: 4000 });
       return;
     }
 
     setChangingPassword(true);
-    setMessage(null);
 
     const { error } = await updatePassword(newPassword);
     if (error) {
-      setMessage({ type: 'error', text: error.message });
+      toast.error(error.message, { duration: 4000 });
     } else {
-      setMessage({ type: 'success', text: 'Password changed successfully!' });
+      toast.success('Password changed successfully!', { duration: 3000 });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -105,18 +103,6 @@ export default function SettingsPage() {
           Manage your account settings and preferences
         </p>
       </div>
-
-      {message && (
-        <div
-          className={`p-4 rounded-lg ${
-            message.type === 'success'
-              ? 'bg-green-50 dark:bg-green-950/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
-              : 'bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4">

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User } from '@/lib/models';
 import { getCurrentUser } from '@/lib/api-utils';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest) {
 
     const { password } = await req.json();
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcryptjs.hash(password, 10);
 
     await User.findByIdAndUpdate(
       user.userId,

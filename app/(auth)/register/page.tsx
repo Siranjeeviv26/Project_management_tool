@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LayoutDashboard, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react';
+import { LayoutDashboard, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function RegisterPage() {
   const [fullName, setFullName] = useState('');
@@ -16,8 +17,6 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const { signUp } = useAuth();
   const router = useRouter();
 
@@ -38,31 +37,20 @@ export default function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
 
     const { error } = await signUp(email, password, fullName);
     if (error) {
-      setError(error.message);
+      toast.error(error.message, {
+        duration: 4000,
+      });
       setLoading(false);
     } else {
-      setSuccess(true);
-      setTimeout(() => router.push('/login'), 2000);
+      toast.success('Account created successfully!', {
+        duration: 3000,
+      });
+      router.push('/dashboard');
     }
   };
-
-  if (success) {
-    return (
-      <Card className="border-0 shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
-        <CardContent className="pt-8 pb-8 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-            <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
-          </div>
-          <h2 className="text-xl font-bold mb-2">Account Created!</h2>
-          <p className="text-slate-600 dark:text-slate-400">Redirecting to login...</p>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <Card className="border-0 shadow-2xl bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl">
@@ -77,11 +65,6 @@ export default function RegisterPage() {
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
-          {error && (
-            <div className="p-3 text-sm text-red-600 bg-red-50 dark:bg-red-950/50 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800">
-              {error}
-            </div>
-          )}
           <div className="space-y-2">
             <Label htmlFor="fullName">Full Name</Label>
             <Input

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcrypt';
+import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { connectToDatabase } from '@/lib/mongodb';
 import { User, Profile } from '@/lib/models';
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       // If user already exists (likely invited), update their password and profile
-      const hashedPassword = await bcrypt.hash(password, 12);
+      const hashedPassword = await bcryptjs.hash(password, 12);
       await User.findByIdAndUpdate(existingUser._id, { password: hashedPassword });
       
       // Also update profile if needed
@@ -27,7 +27,7 @@ export async function POST(request: Request) {
       user = existingUser;
     } else {
       // Create new user and profile
-      const hashedPassword = await bcrypt.hash(password, 12);
+      const hashedPassword = await bcryptjs.hash(password, 12);
       user = await User.create({
         email,
         password: hashedPassword,
