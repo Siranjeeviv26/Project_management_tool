@@ -108,7 +108,7 @@ export interface IActivityLog extends Document {
 
 interface IUser extends Document {
   email: string;
-  password: string;
+  password: string | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -235,7 +235,7 @@ const ActivityLogSchema: Schema = new Schema({
 
 const UserSchema: Schema = new Schema({
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: false },
+  password: { type: String, required: false, default: null },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
