@@ -1,14 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Task, Project, TeamMember, ActivityLog, Attachment } from '@/lib/models';
+import { Task, ActivityLog } from '@/lib/models';
 import { requireAuth } from '@/lib/api-utils';
+import { requireProjectAccess, isProjectMemberUser } from '@/lib/project-access';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
@@ -18,17 +21,8 @@ export async function GET(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    const project = await Project.findById(task.project_id);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    const teamMember = await TeamMember.findOne({
-      team_id: project.team_id, user_id: user.userId
-    });
-    if (!teamMember) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
+    const access = await requireProjectAccess(req, task.project_id.toString());
+    if ('error' in access && access.error) return access.error;
 
     return NextResponse.json(task);
   } catch (error) {
@@ -38,31 +32,42 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
-    const updates = await request.json();
+    const updates = await req.json();
 
     const task = await Task.findById(params.id);
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    const project = await Project.findById(task.project_id);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
+    const access = await requireProjectAccess(req, task.project_id.toString());
+    if ('error' in access && access.error) {
+      // If not a project member, check if user is assigned to this task
+      if (task.assigned_to && task.assigned_to.toString() === user.userId) {
+        // Allow assigned member to update their own task
+      } else {
+        return access.error;
+      }
     }
 
-    const teamMember = await TeamMember.findOne({
-      team_id: project.team_id, user_id: user.userId
-    });
-    if (!teamMember) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    if (updates.assigned_to) {
+      const isMember = await isProjectMemberUser(
+        task.project_id.toString(),
+        updates.assigned_to
+      );
+      if (!isMember) {
+        return NextResponse.json(
+          { error: 'Assignee must be a project member' },
+          { status: 400 }
+        );
+      }
     }
 
     const updatedTask = await Task.findByIdAndUpdate(
@@ -87,11 +92,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
@@ -101,16 +106,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    const project = await Project.findById(task.project_id);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    const teamMember = await TeamMember.findOne({
-      team_id: project.team_id, user_id: user.userId
-    });
-    if (!teamMember) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    const access = await requireProjectAccess(req, task.project_id.toString());
+    if ('error' in access && access.error) {
+      // If not a project member, check if user is assigned to this task
+      if (task.assigned_to && task.assigned_to.toString() === user.userId) {
+        // Allow assigned member to delete their own task
+      } else {
+        return access.error;
+      }
     }
 
     await ActivityLog.create({

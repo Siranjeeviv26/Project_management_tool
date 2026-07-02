@@ -7,6 +7,7 @@ interface User {
   _id: string;
   id?: string;
   email: string;
+  role?: 'admin' | 'member';
 }
 
 interface Profile {
@@ -99,6 +100,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) {
         const data = await res.json();
         return { error: new Error(data.error || 'Signin failed') };
+      }
+
+      const data = await res.json();
+      if (data.role) {
+        setUser(prev => prev ? { ...prev, role: data.role } : null);
       }
 
       await checkAuth();

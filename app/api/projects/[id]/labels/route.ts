@@ -1,29 +1,19 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Label, Project, TeamMember } from '@/lib/models';
-import { requireAuth } from '@/lib/api-utils';
+import { Label } from '@/lib/models';
+import { requireProjectAccess } from '@/lib/project-access';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
-    if (user instanceof NextResponse) return user;
+    const access = await requireProjectAccess(req, params.id);
+    if ('error' in access && access.error) return access.error;
 
     await connectToDatabase();
-
-    const project = await Project.findById(params.id);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    const teamMember = await TeamMember.findOne({
-      team_id: project.team_id, user_id: user.userId
-    });
-    if (!teamMember) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
 
     const labels = await Label.find({ project_id: params.id });
     return NextResponse.json(labels);

@@ -1,15 +1,17 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import { TeamMember, Profile, User } from '@/lib/models';
 import { requireAuth } from '@/lib/api-utils';
 import bcrypt from 'bcrypt';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
@@ -38,16 +40,15 @@ export async function GET(
 }
 
 export async function POST(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
 
-    // Check if current user is a member of this team
     const currentTeamMember = await TeamMember.findOne({
       team_id: params.id, user_id: user.userId
     });
@@ -55,37 +56,35 @@ export async function POST(
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
 
-    const { email, role } = await request.json();
+    const { email, role, full_name } = await req.json();
 
-    // Try to find existing user by email
     let existingUser = await User.findOne({ email });
     let userId;
 
     if (existingUser) {
       userId = existingUser._id;
+      if (full_name) {
+        await Profile.findOneAndUpdate(
+          { user_id: existingUser._id },
+          { full_name, updated_at: new Date() }
+        );
+      }
     } else {
-      // If user doesn't exist, create a placeholder user
-      // with a random password (they'll set their own later via reset password/signup)
-      const randomPassword = Math.random().toString(36).slice(-8);
-      const hashedPassword = await bcrypt.hash(randomPassword, 12);
-
       existingUser = await User.create({
         email,
-        password: hashedPassword,
+        password: null,
       });
 
-      // Also create a profile for this new user
       await Profile.create({
         user_id: existingUser._id,
         email,
-        full_name: null,
+        full_name: full_name || null,
         avatar_url: null,
       });
 
       userId = existingUser._id;
     }
 
-    // Check if user is already a member of this team
     const existingMember = await TeamMember.findOne({
       team_id: params.id, user_id: userId
     });
@@ -93,7 +92,6 @@ export async function POST(
       return NextResponse.json({ error: 'User is already a member of this team' }, { status: 400 });
     }
 
-    // Add user to team
     await TeamMember.create({
       team_id: params.id,
       user_id: userId,

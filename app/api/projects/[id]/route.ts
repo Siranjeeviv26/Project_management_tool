@@ -1,30 +1,21 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Project, TeamMember, ActivityLog } from '@/lib/models';
-import { requireAuth } from '@/lib/api-utils';
+import { Project, ActivityLog } from '@/lib/models';
+import { requireProjectAccess } from '@/lib/project-access';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
-    if (user instanceof NextResponse) return user;
+    const access = await requireProjectAccess(req, params.id);
+    if ('error' in access && access.error) return access.error;
 
     await connectToDatabase();
 
     const project = await Project.findById(params.id);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    const teamMember = await TeamMember.findOne({
-      team_id: project.team_id, user_id: user.userId
-    });
-    if (!teamMember) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
-
     return NextResponse.json(project);
   } catch (error) {
     console.error('Get project error:', error);
@@ -33,27 +24,16 @@ export async function GET(
 }
 
 export async function PATCH(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
-    if (user instanceof NextResponse) return user;
+    const access = await requireProjectAccess(req, params.id);
+    if ('error' in access && access.error) return access.error;
+    const { user, project } = access;
 
     await connectToDatabase();
-    const updates = await request.json();
-
-    const project = await Project.findById(params.id);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    const teamMember = await TeamMember.findOne({
-      team_id: project.team_id, user_id: user.userId
-    });
-    if (!teamMember) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
+    const updates = await req.json();
 
     const updatedProject = await Project.findByIdAndUpdate(
       params.id,
@@ -63,12 +43,12 @@ export async function PATCH(
 
     if (updates.status) {
       await ActivityLog.create({
-        project_id: project._id,
-        team_id: project.team_id,
+        project_id: project!._id,
+        team_id: project!.team_id,
         user_id: user.userId,
         action: updates.status === 'archived' ? 'archived the project' : 'restored the project',
         entity_type: 'project',
-        entity_id: project._id,
+        entity_id: project!._id,
       });
     }
 
@@ -80,29 +60,18 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
-    if (user instanceof NextResponse) return user;
+    const access = await requireProjectAccess(req, params.id);
+    if ('error' in access && access.error) return access.error;
+    const { user, project } = access;
 
     await connectToDatabase();
 
-    const project = await Project.findById(params.id);
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 });
-    }
-
-    const teamMember = await TeamMember.findOne({
-      team_id: project.team_id, user_id: user.userId
-    });
-    if (!teamMember) {
-      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
-    }
-
     await ActivityLog.create({
-      team_id: project.team_id,
+      team_id: project!.team_id,
       user_id: user.userId,
       action: 'deleted a project',
       entity_type: 'project',

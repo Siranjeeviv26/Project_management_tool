@@ -96,6 +96,8 @@ const priorityColors = {
   urgent: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300',
 };
 
+const UNASSIGNED = 'unassigned';
+
 export default function ProjectBoardPage() {
   const { id: projectId } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
@@ -277,10 +279,12 @@ export default function ProjectBoardPage() {
             <p className="text-slate-600 dark:text-slate-400">Drag and drop tasks to update status</p>
           </div>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)} className="bg-gradient-to-r from-blue-600 to-cyan-500">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Task
-        </Button>
+        {user?.role === 'admin' && (
+          <Button onClick={() => setCreateDialogOpen(true)} className="bg-gradient-to-r from-blue-600 to-cyan-500">
+            <Plus className="w-4 h-4 mr-2" />
+            Add Task
+          </Button>
+        )}
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -459,16 +463,18 @@ export default function ProjectBoardPage() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Assignee</label>
                 <Select
-                  value={newTask.assigned_to}
-                  onValueChange={(v) => setNewTask({ ...newTask, assigned_to: v })}
+                  value={newTask.assigned_to || UNASSIGNED}
+                  onValueChange={(v) =>
+                    setNewTask({ ...newTask, assigned_to: v === UNASSIGNED ? '' : v })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Unassigned" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
+                    <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                     {teamMembers.map((member) => (
-                      <SelectItem key={member._id} value={member.user_id?.toString() || member._id?.toString()}>
+                      <SelectItem key={member._id} value={member.user_id.toString()}>
                         {member.full_name || member.email}
                       </SelectItem>
                     ))}

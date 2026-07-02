@@ -75,6 +75,7 @@ export default function TeamsPage() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,6 +140,7 @@ export default function TeamsPage() {
     setSelectedTeam(team);
     setInviteDialogOpen(true);
     setInviteEmail('');
+    setInviteName('');
     setInviteRole('member');
     setError(null);
 
@@ -163,7 +165,7 @@ export default function TeamsPage() {
       const res = await fetch(`/api/teams/${selectedTeam._id}/members`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+        body: JSON.stringify({ email: inviteEmail, full_name: inviteName, role: inviteRole }),
       });
 
       if (!res.ok) {
@@ -172,7 +174,7 @@ export default function TeamsPage() {
       }
 
       setInviteEmail('');
-      
+      setInviteName('');
       // Refresh team members list
       const membersRes = await fetch(`/api/teams/${selectedTeam._id}/members`);
       if (membersRes.ok) {
@@ -214,52 +216,54 @@ export default function TeamsPage() {
             Manage your teams and collaborate with others
           </p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25">
-              <Plus className="w-4 h-4 mr-2" />
-              Create Team
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create a new team</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreateTeam} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="name">Team name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter team name"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What is this team about?"
-                  rows={3}
-                />
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={submitting}>
-                  {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Create Team
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {(user?.role === 'admin' || teams.length === 0) && (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Team
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create a new team</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateTeam} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="name">Team name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter team name"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="What is this team about?"
+                    rows={3}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Create Team
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       {teams.length === 0 ? (
@@ -267,7 +271,9 @@ export default function TeamsPage() {
           <CardContent className="py-12 text-center">
             <Users className="w-12 h-12 mx-auto text-slate-400 mb-4" />
             <h3 className="text-lg font-medium mb-2">No teams yet</h3>
-            <p className="text-slate-500 mb-4">Create your first team to get started</p>
+            <p className="text-slate-500 mb-4">
+              Create your first team to get started
+            </p>
             <Button onClick={() => setCreateDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
               Create Team
@@ -330,14 +336,25 @@ export default function TeamsPage() {
             <DialogTitle>Manage Team Members - {selectedTeam?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <form onSubmit={handleInvite} className="flex gap-2">
-              <Input
-                type="email"
-                placeholder="Enter email address"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="flex-1"
-              />
+            <form onSubmit={handleInvite} className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  type="text"
+                  placeholder="Member name"
+                  value={inviteName}
+                  onChange={(e) => setInviteName(e.target.value)}
+                  className="flex-1"
+                />
+                <Input
+                  type="email"
+                  placeholder="Email address"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="flex-1"
+                  required
+                />
+              </div>
+              <div className="flex gap-2">
               <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'admin' | 'member')}>
                 <SelectTrigger className="w-28">
                   <SelectValue />
@@ -349,8 +366,13 @@ export default function TeamsPage() {
               </Select>
               <Button type="submit" disabled={submitting}>
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                Add Member
               </Button>
+              </div>
             </form>
+            <p className="text-xs text-slate-500">
+              Members can register or sign up with this email to set their password and access assigned projects.
+            </p>
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>

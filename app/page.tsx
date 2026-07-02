@@ -3,6 +3,7 @@
 import { useAuth } from '@/contexts/auth-context';
 import { useTheme } from 'next-themes';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   LayoutDashboard,
@@ -17,10 +18,20 @@ import {
 } from 'lucide-react';
 
 export default function LandingPage() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   if (user) {
+    router.push('/dashboard');
     return null;
   }
 

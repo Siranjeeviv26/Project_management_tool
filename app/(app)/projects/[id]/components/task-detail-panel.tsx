@@ -120,6 +120,8 @@ const statusColors = {
   completed: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
 };
 
+const UNASSIGNED = 'unassigned';
+
 export function TaskDetailPanel({
   task,
   projectId,
@@ -150,8 +152,14 @@ export function TaskDetailPanel({
   }, [task._id]);
 
   const loadComments = async () => {
-    // For now, we don't have a comments API, let's just set to empty array
-    setComments([]);
+    try {
+      const res = await fetch(`/api/tasks/${task._id}/comments`);
+      if (res.ok) {
+        setComments(await res.json());
+      }
+    } catch (error) {
+      console.error('Error loading comments:', error);
+    }
   };
 
   const loadAttachments = async () => {
@@ -196,8 +204,16 @@ export function TaskDetailPanel({
 
     setSubmittingComment(true);
     try {
-      // For now, comments API not implemented
-      setNewComment('');
+      const res = await fetch(`/api/tasks/${task._id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newComment }),
+      });
+
+      if (res.ok) {
+        setNewComment('');
+        loadComments();
+      }
     } catch (error) {
       console.error('Error adding comment:', error);
     } finally {
@@ -211,19 +227,41 @@ export function TaskDetailPanel({
 
     setUploading(true);
     try {
-      // File upload would require a storage solution, this is a placeholder
-      // For now, just skip uploading and don't save anything
-      console.log('File upload not implemented yet', file);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const fileContent = reader.result as string;
+        const res = await fetch(`/api/tasks/${task._id}/attachments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            file_name: file.name,
+            file_type: file.type,
+            file_size: file.size,
+            file_content: fileContent,
+          }),
+        });
+
+        if (res.ok) {
+          loadAttachments();
+        }
+        setUploading(false);
+      };
+      reader.readAsDataURL(file);
     } catch (error) {
       console.error('Error uploading file:', error);
-    } finally {
       setUploading(false);
     }
   };
 
   const handleDeleteAttachment = async (attachment: Attachment) => {
-    // For now, we don't have a delete API
-    console.log('Delete attachment not implemented yet', attachment);
+    try {
+      await fetch(`/api/tasks/${task._id}/attachments?attachmentId=${attachment._id}`, {
+        method: 'DELETE',
+      });
+      loadAttachments();
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+    }
   };
 
   const getInitials = (name: string | null, email: string | null) => {
@@ -354,16 +392,16 @@ export function TaskDetailPanel({
             </h3>
             {editing ? (
               <Select
-                value={assignedTo}
-                onValueChange={setAssignedTo}
+                value={assignedTo || UNASSIGNED}
+                onValueChange={(v) => setAssignedTo(v === UNASSIGNED ? '' : v)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Unassigned" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
                   {teamMembers.map((member) => (
-                    <SelectItem key={member._id} value={member.user_id?.toString() || member._id?.toString()}>
+                    <SelectItem key={member._id} value={member.user_id.toString()}>
                       {member.full_name || member.email}
                     </SelectItem>
                   ))}

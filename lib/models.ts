@@ -1,4 +1,4 @@
-import mongoose, { Document, Schema } from 'mongoose';
+import mongoose, { Document, Schema } from "mongoose";
 
 export interface IProfile extends Document {
   user_id: mongoose.Types.ObjectId;
@@ -20,7 +20,7 @@ export interface ITeam extends Document {
 export interface ITeamMember extends Document {
   team_id: mongoose.Types.ObjectId;
   user_id: mongoose.Types.ObjectId;
-  role: 'member' | 'admin';
+  role: "member" | "admin";
   joined_at: Date;
 }
 
@@ -29,7 +29,7 @@ export interface IProject extends Document {
   name: string;
   description: string | null;
   color: string;
-  status: 'active' | 'archived';
+  status: "active" | "archived";
   created_by: mongoose.Types.ObjectId;
   created_at: Date;
   updated_at: Date;
@@ -39,14 +39,20 @@ export interface ITask extends Document {
   project_id: mongoose.Types.ObjectId;
   title: string;
   description: string | null;
-  status: 'todo' | 'in_progress' | 'review' | 'completed';
-  priority: 'low' | 'medium' | 'high' | 'urgent';
+  status: "todo" | "in_progress" | "review" | "completed";
+  priority: "low" | "medium" | "high" | "urgent";
   due_date: Date | null;
   created_by: mongoose.Types.ObjectId;
   assigned_to: mongoose.Types.ObjectId | null;
   position: number;
   created_at: Date;
   updated_at: Date;
+}
+
+export interface IProjectMember extends Document {
+  project_id: mongoose.Types.ObjectId;
+  user_id: mongoose.Types.ObjectId;
+  added_at: Date;
 }
 
 export interface ILabel extends Document {
@@ -81,7 +87,7 @@ export interface IAttachment extends Document {
 
 export interface INotification extends Document {
   user_id: mongoose.Types.ObjectId;
-  type: 'task_assigned' | 'comment' | 'mention' | 'due_date';
+  type: "task_assigned" | "comment" | "mention" | "due_date";
   entity_type: string;
   entity_id: mongoose.Types.ObjectId;
   message: string;
@@ -119,66 +125,82 @@ const ProfileSchema: Schema = new Schema({
 const TeamSchema: Schema = new Schema({
   name: { type: String, required: true },
   description: { type: String, default: null },
-  created_by: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  created_by: { type: Schema.Types.ObjectId, required: true, ref: "User" },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
 
 const TeamMemberSchema: Schema = new Schema({
-  team_id: { type: Schema.Types.ObjectId, required: true, ref: 'Team' },
-  user_id: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
-  role: { type: String, enum: [ 'admin', 'member'], default: 'member' },
+  team_id: { type: Schema.Types.ObjectId, required: true, ref: "Team" },
+  user_id: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+  role: { type: String, enum: ["admin", "member"], default: "member" },
   joined_at: { type: Date, default: Date.now },
 });
 
 const ProjectSchema: Schema = new Schema({
-  team_id: { type: Schema.Types.ObjectId, required: true, ref: 'Team' },
+  team_id: { type: Schema.Types.ObjectId, required: true, ref: "Team" },
   name: { type: String, required: true },
   description: { type: String, default: null },
-  color: { type: String, default: '#3B82F6' },
-  status: { type: String, enum: ['active', 'archived'], default: 'active' },
-  created_by: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  color: { type: String, default: "#3B82F6" },
+  status: { type: String, enum: ["active", "archived"], default: "active" },
+  created_by: { type: Schema.Types.ObjectId, required: true, ref: "User" },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
 
 const TaskSchema: Schema = new Schema({
-  project_id: { type: Schema.Types.ObjectId, required: true, ref: 'Project' },
+  project_id: { type: Schema.Types.ObjectId, required: true, ref: "Project" },
   title: { type: String, required: true },
   description: { type: String, default: null },
-  status: { type: String, enum: ['todo', 'in_progress', 'review', 'completed'], default: 'todo' },
-  priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
+  status: {
+    type: String,
+    enum: ["todo", "in_progress", "review", "completed"],
+    default: "todo",
+  },
+  priority: {
+    type: String,
+    enum: ["low", "medium", "high", "urgent"],
+    default: "medium",
+  },
   due_date: { type: Date, default: null },
-  created_by: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
-  assigned_to: { type: Schema.Types.ObjectId, default: null, ref: 'User' },
+  created_by: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+  assigned_to: { type: Schema.Types.ObjectId, default: null, ref: "User" },
   position: { type: Number, default: 0 },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
 
+const ProjectMemberSchema: Schema = new Schema({
+  project_id: { type: Schema.Types.ObjectId, required: true, ref: "Project" },
+  user_id: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+  added_at: { type: Date, default: Date.now },
+});
+
+ProjectMemberSchema.index({ project_id: 1, user_id: 1 }, { unique: true });
+
 const LabelSchema: Schema = new Schema({
-  project_id: { type: Schema.Types.ObjectId, required: true, ref: 'Project' },
+  project_id: { type: Schema.Types.ObjectId, required: true, ref: "Project" },
   name: { type: String, required: true },
-  color: { type: String, default: '#6366F1' },
+  color: { type: String, default: "#6366F1" },
 });
 
 const TaskLabelSchema: Schema = new Schema({
-  task_id: { type: Schema.Types.ObjectId, required: true, ref: 'Task' },
-  label_id: { type: Schema.Types.ObjectId, required: true, ref: 'Label' },
+  task_id: { type: Schema.Types.ObjectId, required: true, ref: "Task" },
+  label_id: { type: Schema.Types.ObjectId, required: true, ref: "Label" },
 });
 
 const CommentSchema: Schema = new Schema({
-  task_id: { type: Schema.Types.ObjectId, required: true, ref: 'Task' },
-  user_id: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  task_id: { type: Schema.Types.ObjectId, required: true, ref: "Task" },
+  user_id: { type: Schema.Types.ObjectId, required: true, ref: "User" },
   content: { type: String, required: true },
-  mentions: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  mentions: [{ type: Schema.Types.ObjectId, ref: "User" }],
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
 
 const AttachmentSchema: Schema = new Schema({
-  task_id: { type: Schema.Types.ObjectId, required: true, ref: 'Task' },
-  uploaded_by: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  task_id: { type: Schema.Types.ObjectId, required: true, ref: "Task" },
+  uploaded_by: { type: Schema.Types.ObjectId, required: true, ref: "User" },
   file_name: { type: String, required: true },
   file_url: { type: String, required: true },
   file_type: { type: String, default: null },
@@ -187,8 +209,12 @@ const AttachmentSchema: Schema = new Schema({
 });
 
 const NotificationSchema: Schema = new Schema({
-  user_id: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
-  type: { type: String, enum: ['task_assigned', 'comment', 'mention', 'due_date'], required: true },
+  user_id: { type: Schema.Types.ObjectId, required: true, ref: "User" },
+  type: {
+    type: String,
+    enum: ["task_assigned", "comment", "mention", "due_date"],
+    required: true,
+  },
   entity_type: { type: String, required: true },
   entity_id: { type: Schema.Types.ObjectId, required: true },
   message: { type: String, required: true },
@@ -197,9 +223,9 @@ const NotificationSchema: Schema = new Schema({
 });
 
 const ActivityLogSchema: Schema = new Schema({
-  team_id: { type: Schema.Types.ObjectId, default: null, ref: 'Team' },
-  project_id: { type: Schema.Types.ObjectId, default: null, ref: 'Project' },
-  user_id: { type: Schema.Types.ObjectId, required: true, ref: 'User' },
+  team_id: { type: Schema.Types.ObjectId, default: null, ref: "Team" },
+  project_id: { type: Schema.Types.ObjectId, default: null, ref: "Project" },
+  user_id: { type: Schema.Types.ObjectId, required: true, ref: "User" },
   action: { type: String, required: true },
   entity_type: { type: String, required: true },
   entity_id: { type: Schema.Types.ObjectId, required: true },
@@ -209,20 +235,41 @@ const ActivityLogSchema: Schema = new Schema({
 
 const UserSchema: Schema = new Schema({
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
+  password: { type: String, required: false },
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
 
-export const Profile = mongoose.models.Profile || mongoose.model<IProfile>('Profile', ProfileSchema);
-export const Team = mongoose.models.Team || mongoose.model<ITeam>('Team', TeamSchema);
-export const TeamMember = mongoose.models.TeamMember || mongoose.model<ITeamMember>('TeamMember', TeamMemberSchema);
-export const Project = mongoose.models.Project || mongoose.model<IProject>('Project', ProjectSchema);
-export const Task = mongoose.models.Task || mongoose.model<ITask>('Task', TaskSchema);
-export const Label = mongoose.models.Label || mongoose.model<ILabel>('Label', LabelSchema);
-export const TaskLabel = mongoose.models.TaskLabel || mongoose.model<ITaskLabel>('TaskLabel', TaskLabelSchema);
-export const Comment = mongoose.models.Comment || mongoose.model<IComment>('Comment', CommentSchema);
-export const Attachment = mongoose.models.Attachment || mongoose.model<IAttachment>('Attachment', AttachmentSchema);
-export const Notification = mongoose.models.Notification || mongoose.model<INotification>('Notification', NotificationSchema);
-export const ActivityLog = mongoose.models.ActivityLog || mongoose.model<IActivityLog>('ActivityLog', ActivityLogSchema);
-export const User = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+export const Profile =
+  mongoose.models.Profile || mongoose.model<IProfile>("Profile", ProfileSchema);
+export const Team =
+  mongoose.models.Team || mongoose.model<ITeam>("Team", TeamSchema);
+export const TeamMember =
+  mongoose.models.TeamMember ||
+  mongoose.model<ITeamMember>("TeamMember", TeamMemberSchema);
+export const Project =
+  mongoose.models.Project || mongoose.model<IProject>("Project", ProjectSchema);
+export const ProjectMember =
+  mongoose.models.ProjectMember ||
+  mongoose.model<IProjectMember>("ProjectMember", ProjectMemberSchema);
+export const Task =
+  mongoose.models.Task || mongoose.model<ITask>("Task", TaskSchema);
+export const Label =
+  mongoose.models.Label || mongoose.model<ILabel>("Label", LabelSchema);
+export const TaskLabel =
+  mongoose.models.TaskLabel ||
+  mongoose.model<ITaskLabel>("TaskLabel", TaskLabelSchema);
+export const Comment =
+  mongoose.models.Comment || mongoose.model<IComment>("Comment", CommentSchema);
+export const Attachment =
+  mongoose.models.Attachment ||
+  mongoose.model<IAttachment>("Attachment", AttachmentSchema);
+export const Notification =
+  mongoose.models.Notification ||
+  mongoose.model<INotification>("Notification", NotificationSchema);
+export const ActivityLog =
+  mongoose.models.ActivityLog ||
+  mongoose.model<IActivityLog>("ActivityLog", ActivityLogSchema);
+export const User =
+  (mongoose.models.User && mongoose.deleteModel("User"),
+  mongoose.model<IUser>("User", UserSchema));

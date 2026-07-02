@@ -1,12 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Team, TeamMember, Profile } from '@/lib/models';
-import { getCurrentUser, requireAuth } from '@/lib/api-utils';
+import { Team, TeamMember } from '@/lib/models';
+import { requireAuth } from '@/lib/api-utils';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
   try {
     console.log('[Teams API] Checking auth...');
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) {
       console.log('[Teams API] Auth failed');
       return user;
@@ -24,7 +26,6 @@ export async function GET() {
     const teams = await Team.find({ _id: { $in: teamIds } });
     console.log('[Teams API] Found teams:', teams);
 
-    // For each team, get member count and current user's role
     const teamsWithData = await Promise.all(teams.map(async (team) => {
       const members = await TeamMember.find({ team_id: team._id });
       const currentMember = members.find(m => m.user_id.toString() === user.userId);
@@ -44,13 +45,25 @@ export async function GET() {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
-    const { name, description } = await request.json();
+    const { name, description } = await req.json();
+
+    // Check if user is already an admin or if no teams exist yet
+    const existingAdmin = await TeamMember.findOne({
+      user_id: user.userId,
+      role: 'admin',
+    });
+
+    const teamCount = await Team.countDocuments();
+
+    if (!existingAdmin && teamCount > 0) {
+      return NextResponse.json({ error: 'Only admins can create teams' }, { status: 403 });
+    }
 
     const team = await Team.create({
       name,
@@ -61,7 +74,7 @@ export async function POST(request: Request) {
     await TeamMember.create({
       team_id: team._id,
       user_id: user.userId,
-      role: 'member',
+      role: 'admin',
     });
 
     return NextResponse.json(team);

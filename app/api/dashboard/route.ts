@@ -1,29 +1,34 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Task, Project, TeamMember, ActivityLog, Profile } from '@/lib/models';
+import { Task, Project, TeamMember, ActivityLog, Profile, ProjectMember } from '@/lib/models';
 import { requireAuth } from '@/lib/api-utils';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+
+export async function GET(req: NextRequest) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
 
+    const projectMemberships = await ProjectMember.find({ user_id: user.userId });
+    let projectIds = projectMemberships.map(pm => pm.project_id);
+
     const teamMembers = await TeamMember.find({ user_id: user.userId });
     const teamIds = teamMembers.map(tm => tm.team_id);
 
-    if (teamIds.length === 0) {
-      return NextResponse.json({
-        stats: { totalTasks: 0, completedTasks: 0, pendingTasks: 0, overdueTasks: 0, projectsCount: 0 },
-        recentTasks: [],
-        upcomingDeadlines: [],
-        recentActivity: []
-      });
+    if (teamIds.length > 0) {
+      const legacyProjects = await Project.find({ team_id: { $in: teamIds } });
+      for (const project of legacyProjects) {
+        const pmCount = await ProjectMember.countDocuments({ project_id: project._id });
+        if (pmCount === 0) {
+          projectIds.push(project._id);
+        }
+      }
     }
 
-    const projects = await Project.find({ team_id: { $in: teamIds } });
-    const projectIds = projects.map(p => p._id);
+    projectIds = Array.from(new Set(projectIds.map(id => id.toString())));
 
     if (projectIds.length === 0) {
       return NextResponse.json({
@@ -34,6 +39,7 @@ export async function GET() {
       });
     }
 
+    const projects = await Project.find({ _id: { $in: projectIds } });
     const allTasks = await Task.find({ project_id: { $in: projectIds } });
     const now = new Date();
 
@@ -47,6 +53,7 @@ export async function GET() {
 
     const assignedTasks = await Task.find({
       assigned_to: user.userId,
+      project_id: { $in: projectIds },
       status: { $ne: 'completed' }
     }).sort({ updated_at: -1 }).limit(5);
 
@@ -80,10 +87,10 @@ export async function GET() {
     }).sort({ created_at: -1 }).limit(10);
 
     const activityUserIds = recentActivity.map(a => a.user_id);
-    const profiles = await Profile.find({ _id: { $in: activityUserIds } });
+    const profiles = await Profile.find({ user_id: { $in: activityUserIds } });
 
     const profileMap = new Map();
-    profiles.forEach(p => profileMap.set(p._id.toString(), p));
+    profiles.forEach(p => profileMap.set(p.user_id.toString(), p));
     const recentActivityWithProfiles = recentActivity.map(activity => {
       const activityObj = activity.toObject();
       return {

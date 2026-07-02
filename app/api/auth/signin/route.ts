@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { connectToDatabase } from '@/lib/mongodb';
-import { User } from '@/lib/models';
+import { User, TeamMember } from '@/lib/models';
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +12,14 @@ export async function POST(request: Request) {
     const user = await User.findOne({ email });
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    // If user has no password, set it to the provided password (first-time login)
+    if (!user.password) {
+      const hashedPassword = await bcrypt.hash(password, 12);
+      user.password = hashedPassword;
+      user.updated_at = new Date();
+      await user.save();
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
@@ -25,7 +33,11 @@ export async function POST(request: Request) {
       { expiresIn: '7d' }
     );
 
-    const response = NextResponse.json({ success: true });
+    // Fetch user's role from any team they're a member of
+    const teamMember = await TeamMember.findOne({ user_id: user._id });
+    const role = teamMember?.role || 'member';
+
+    const response = NextResponse.json({ success: true, role });
     response.cookies.set('auth_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

@@ -1,14 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
-import { Team, TeamMember, Profile } from '@/lib/models';
+import { Team, TeamMember } from '@/lib/models';
 import { requireAuth } from '@/lib/api-utils';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();
@@ -28,11 +30,11 @@ export async function GET(
 }
 
 export async function DELETE(
-  request: Request,
+  req: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const user = await requireAuth();
+    const user = requireAuth(req);
     if (user instanceof NextResponse) return user;
 
     await connectToDatabase();

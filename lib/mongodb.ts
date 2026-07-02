@@ -1,9 +1,10 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/tools';
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/project_management";
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable');
+  throw new Error("Please define the MONGODB_URI environment variable");
 }
 
 interface MongooseCache {
@@ -11,7 +12,10 @@ interface MongooseCache {
   promise: Promise<typeof mongoose> | null;
 }
 
-let cached: MongooseCache = (global as any).mongoose || { conn: null, promise: null };
+let cached: MongooseCache = (global as any).mongoose || {
+  conn: null,
+  promise: null,
+};
 
 if (!(global as any).mongoose) {
   (global as any).mongoose = cached;

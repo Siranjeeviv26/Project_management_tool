@@ -42,6 +42,14 @@ interface Team {
   name: string;
 }
 
+interface TeamMemberProfile {
+  _id: string;
+  user_id: string;
+  email: string;
+  full_name: string | null;
+  avatar_url: string | null;
+}
+
 interface Project {
   _id: string;
   team_id: string;
@@ -63,6 +71,8 @@ function ProjectsContent() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedTeam, setSelectedTeam] = useState<string>('');
+  const [teamMembers, setTeamMembers] = useState<TeamMemberProfile[]>([]);
+  const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const filterTeam = searchParams.get('team') || 'all';
@@ -78,6 +88,37 @@ function ProjectsContent() {
       }
     }
   }, [user, authLoading, filterTeam, filterStatus, router]);
+
+  const loadTeamMembers = async (teamId: string) => {
+    const res = await fetch(`/api/teams/${teamId}/members`);
+    if (res.ok) {
+      const data = await res.json();
+      const profiles = data
+        .map((m: { profiles?: TeamMemberProfile; user_id: string }) => m.profiles)
+        .filter(Boolean) as TeamMemberProfile[];
+      setTeamMembers(profiles);
+      setSelectedMemberIds([]);
+    } else {
+      setTeamMembers([]);
+      setSelectedMemberIds([]);
+    }
+  };
+
+  const handleTeamChange = (teamId: string) => {
+    setSelectedTeam(teamId);
+    if (teamId) {
+      loadTeamMembers(teamId);
+    } else {
+      setTeamMembers([]);
+      setSelectedMemberIds([]);
+    }
+  };
+
+  const toggleMember = (userId: string) => {
+    setSelectedMemberIds(prev =>
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
 
   const loadTeams = async () => {
     const res = await fetch('/api/teams');
@@ -120,7 +161,12 @@ function ProjectsContent() {
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ team_id: selectedTeam, name, description }),
+        body: JSON.stringify({
+          team_id: selectedTeam,
+          name,
+          description,
+          member_ids: selectedMemberIds,
+        }),
       });
 
       if (!res.ok) {
@@ -131,6 +177,8 @@ function ProjectsContent() {
       setName('');
       setDescription('');
       setSelectedTeam('');
+      setTeamMembers([]);
+      setSelectedMemberIds([]);
       loadProjects();
     } catch (err: unknown) {
       setError((err as Error).message);
@@ -173,67 +221,95 @@ function ProjectsContent() {
             Manage your projects and track progress
           </p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25">
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create a new project</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-2">
-                <Label htmlFor="team">Team</Label>
-                <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a team" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams.map((team) => (
-                      <SelectItem key={team._id} value={team._id}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="name">Project name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter project name"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="desc">Description</Label>
-                <Textarea
-                  id="desc"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="What is this project about?"
-                  rows={3}
-                />
-              </div>
-              <DialogFooter>
-                <Button type="submit" disabled={submitting}>
-                  {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Create Project
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        {user?.role === 'admin' && (
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 shadow-lg shadow-blue-500/25">
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create a new project</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateProject} className="space-y-4">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="team">Team</Label>
+                  <Select value={selectedTeam} onValueChange={handleTeamChange}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a team" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team._id} value={team._id}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedTeam && teamMembers.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Project members</Label>
+                    <p className="text-xs text-slate-500">
+                      Select team members to add to this project. You are added automatically.
+                    </p>
+                    <div className="max-h-40 overflow-y-auto space-y-2 rounded-lg border p-3">
+                      {teamMembers
+                        .filter((member) => member.user_id !== user?.id && member.user_id !== user?._id)
+                        .map((member) => (
+                          <label
+                            key={member.user_id}
+                            className="flex items-center gap-2 cursor-pointer text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedMemberIds.includes(member.user_id)}
+                              onChange={() => toggleMember(member.user_id)}
+                              className="rounded"
+                            />
+                            <span>{member.full_name || member.email}</span>
+                          </label>
+                        ))}
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="name">Project name</Label>
+                  <Input
+                    id="name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter project name"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="desc">Description</Label>
+                  <Textarea
+                    id="desc"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="What is this project about?"
+                    rows={3}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Create Project
+                  </Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -267,12 +343,14 @@ function ProjectsContent() {
             <FolderKanban className="w-12 h-12 mx-auto text-slate-400 mb-4" />
             <h3 className="text-lg font-medium mb-2">No projects yet</h3>
             <p className="text-slate-500 mb-4">
-              Create your first project to get started
+              {user?.role === 'admin' ? 'Create your first project to get started' : 'No projects available'}
             </p>
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </Button>
+            {user?.role === 'admin' && (
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                New Project
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

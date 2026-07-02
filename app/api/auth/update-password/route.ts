@@ -4,10 +4,12 @@ import { User } from '@/lib/models';
 import { getCurrentUser } from '@/lib/api-utils';
 import bcrypt from 'bcrypt';
 
+export const dynamic = 'force-dynamic';
+
 export async function PATCH(req: NextRequest) {
   try {
     await connectToDatabase();
-    const user = await getCurrentUser();
+    const user = getCurrentUser(req);
     if (!user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
